@@ -34,14 +34,13 @@ def graphe_chevauchements(
         ``poids`` vaut le score correspondant.
     """
     n = len(scores)
-    graphe = nx.DiGraph()
+    graphe = nx.DiGraph() #Directed graph
     graphe.add_nodes_from(range(n))
     for i in range(n):
         for j in range(n):
-            if i != j and scores[i][j] >= seuil:
+            if i != j and scores[i][j] >= seuil: #seuil et pas diagonale
                 graphe.add_edge(i, j, poids=scores[i][j])
     return graphe
-
 
 def reduction_transitive(graphe: nx.DiGraph) -> nx.DiGraph:
     """Calcule la reduction transitive du graphe de chevauchement.
@@ -60,30 +59,38 @@ def reduction_transitive(graphe: nx.DiGraph) -> nx.DiGraph:
     """
     graphe_reduit = graphe.copy()
 
-        # Supprimer les aretes de poids plus faible dans les cycles de deux noeuds
-   
+    # Supprimer les aretes de poids plus faible dans les cycles de deux noeuds
+    # Traiter les paires de noeuds bidirectionnelles (cycles de taille 2)
+    # On parcourt une copie des aretes pour ne pas modifier l'iterable
     for u, v in list(graphe_reduit.edges()):
         if graphe_reduit.has_edge(u, v) and graphe_reduit.has_edge(v, u):
-            poids_uv = graphe_reduit[u][v]['poids']
-            poids_vu = graphe_reduit[v][u]['poids']
+            poids_uv = graphe_reduit[u][v]["poids"]
+            poids_vu = graphe_reduit[v][u]["poids"]
             if poids_uv < poids_vu:
                 graphe_reduit.remove_edge(u, v)
             elif poids_vu < poids_uv:
                 graphe_reduit.remove_edge(v, u)
             else:
-                graphe_reduit.remove_edge(max(u, v), min(u, v))
+                # si egaux, garder une seule orientation: conserver (min,max)
+                a, b = sorted((u, v))
+                graphe_reduit.remove_edge(b, a)
 
-    # Supprimer les aretes transitives
+    # Supprimer les aretes transitives: pour chaque arete (u,v), si un autre
+    # chemin simple de u a v existe, on peut supprimer l'arete.
     for u, v in list(graphe_reduit.edges()):
+        # l'arete pourrait avoir ete supprimee lors du traitement precedent
         if not graphe_reduit.has_edge(u, v):
-            continue #2 noeuds deja traite
+            continue
         attributs = dict(graphe_reduit[u][v])
         graphe_reduit.remove_edge(u, v)
         if nx.has_path(graphe_reduit, u, v):
-            continue #Un autre chemin existe, donc on ne remet pas l'arete
+            # il existe un autre chemin, on laisse l'arete supprimee
+            continue
+        # aucun autre chemin: remettre l'arete
         graphe_reduit.add_edge(u, v, **attributs)
 
     return graphe_reduit
+
 
 def ordre_assemblage(graphe: nx.DiGraph) -> list[int]:
     """Trouve l'ordre d'assemblage des reads dans le graphe reduit.
@@ -97,12 +104,12 @@ def ordre_assemblage(graphe: nx.DiGraph) -> list[int]:
         chaque noeud exactement une fois. L'enonce garantit l'existence de
         ce chemin apres reduction.
     """
-    depart = None
-
+    #Edge case: graphe vide
     if len(graphe) == 0:
         return []
 
-    #source 
+    #noed de depart: degre entrant = 0 (il y a exactement un tel noeud)
+    depart: int | None = None
     for noeud in graphe:
         if graphe.in_degree(noeud) == 0:
             depart = noeud
@@ -111,10 +118,12 @@ def ordre_assemblage(graphe: nx.DiGraph) -> list[int]:
     ordre = [depart]
     courant = depart
     while len(ordre) < len(graphe):
-        courant = next(iter(graphe.successors(courant)))
+        successeurs = list(graphe.successors(courant))
+        courant = successeurs[0]
         ordre.append(courant)
 
     return ordre
+
 
 def sequence_finale(reads: list[str], ordre: list[int]) -> tuple[str, list[int]]:
     """Assemble les reads en une sequence de fragment genomique.
@@ -128,20 +137,24 @@ def sequence_finale(reads: list[str], ordre: list[int]) -> tuple[str, list[int]]
         longueurs des chevauchements entre les paires de reads consecutifs,
         dans l'ordre.
     """
-   
+
+   # Edge case: ordre vide
     if not ordre:
         return "", []
 
+    # Assemble les reads selon l'ordre donne
     fragment = reads[ordre[0]]
     longueurs: list[int] = []
 
+    # On parcourt les indices de l'ordre pour assembler les reads
     for k in range(len(ordre) - 1):
         precedent = ordre[k]
         suivant = ordre[k + 1]
+        # On calcule le chevauchement maximal entre les deux reads
         _, _, _, chevauchement = chevauchement_maximal(
             reads[precedent], reads[suivant]
         )
         longueurs.append(chevauchement)
-        fragment += reads[suivant][chevauchement:]
+        fragment += reads[suivant][chevauchement:] #On ajoute la partie non chevauchante du read suivant
 
     return fragment, longueurs

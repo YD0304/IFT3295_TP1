@@ -109,11 +109,11 @@ def matrice_chevauchements(reads: list[str]) -> list[list[int]]:
     """
 
     n: int = len(reads)
-    matrice: list[list[int]] = [[0] * n for _ in range(n)]
+    matrice: list[list[int]] = [[0] * n for _ in range(n)] #n*n
 
     for i in range(n):
         for j in range(n):
-            if i != j:
+            if i != j: #Pas diagonale
                 score, _, _, _ = chevauchement_maximal(reads[i], reads[j])
                 matrice[i][j] = score
 
