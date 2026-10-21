@@ -1,6 +1,8 @@
-# IFT3295 — TP1, automne 2026
+# IFT3295 — TP, automne 2026
 
 Matériel du TP1 « Assemblage de séquences ». Échéance : vendredi 9 octobre 2026, avant 13h29.
+
+Matériel du TP2 « Repliement d’ARN et alignement multiple ». Échéance : mercredi 28 octobre 2026, avant 13h29.
 
 ## Contenu
 
